@@ -49,14 +49,17 @@ class Operator extends Token {
         return undefined;
     }
     static getEvaluationFor(first, second, operation) {
-        if (operation == "AND") {
+        if (operation == "∧") {
             return first && second;
         }
-        if (operation == "OR") {
+        if (operation == "∨") {
             return first || second;
         }
-        if (operation == "IMPLIES") {
+        if (operation == "⇒") {
             return (!first) || second;
+        }
+        if (operation == "IFF") {
+            return ((!first) || second) && ((!second) || first);
         }
     }
 }
@@ -101,11 +104,24 @@ class Expr extends Token {
         this.value = value;
     }
     stringify() {
-        // if (this.myPath[0].name == "Variable") {
-        //     let variable: Variable = this.value[0] as Variable;
-        //     return variable.name;
-        // }
-        return undefined;
+        if (this.isOfPath([Variable])) {
+            let variable = this.value[0];
+            return variable.name;
+        }
+        if (this.isOfPath([UnaryOperator, Expr])) {
+            let expr = this.value[1];
+            return "¬" + expr.stringify();
+        }
+        if (this.isOfPath([Expr, Operator, Expr])) {
+            let expr1 = this.value[0];
+            let expr2 = this.value[2];
+            let oper = this.value[1];
+            return `${expr1.stringify()} ${oper.operation} ${expr2.stringify()}`;
+        }
+        if (this.isOfPath([Open, Expr, Close])) {
+            let expr = this.value[1];
+            return "(" + expr.stringify() + ")";
+        }
     }
     isOfPath(path) {
         for (let i = 0; i < this.myPath.length; i++) {
@@ -198,22 +214,22 @@ function getTokenFor(input) {
     map.set("]", new Close());
     map.set("{", new Open());
     map.set("}", new Close());
-    map.set("&", new Operator("AND"));
-    map.set("and", new Operator("AND"));
-    map.set("AND", new Operator("AND"));
-    map.set("^", new Operator("AND"));
-    map.set("v", new Operator("OR"));
-    map.set("OR", new Operator("OR"));
-    map.set("or", new Operator("OR"));
-    map.set("|", new Operator("OR"));
+    map.set("&", new Operator("∧"));
+    map.set("and", new Operator("∧"));
+    map.set("AND", new Operator("∧"));
+    map.set("^", new Operator("∧"));
+    map.set("v", new Operator("∨"));
+    map.set("OR", new Operator("∨"));
+    map.set("or", new Operator("∨"));
+    map.set("|", new Operator("∨"));
     map.set("XOR", new Operator("XOR"));
     map.set("xor", new Operator("XOR"));
-    map.set("IMPLIES", new Operator("IMPLIES"));
-    map.set("implies", new Operator("IMPLIES"));
-    map.set("WHEN", new Operator("IMPLIES"));
-    map.set("IF", new Operator("IMPLIES"));
-    map.set("->", new Operator("IMPLIES"));
-    map.set("=>", new Operator("IMPLIES"));
+    map.set("IMPLIES", new Operator("⇒"));
+    map.set("implies", new Operator("⇒"));
+    map.set("WHEN", new Operator("⇒"));
+    map.set("IF", new Operator("⇒"));
+    map.set("->", new Operator("⇒"));
+    map.set("=>", new Operator("⇒"));
     map.set("<=>", new Operator("IFF"));
     map.set("<->", new Operator("IFF"));
     map.set("IFF", new Operator("IFF"));
@@ -256,12 +272,11 @@ function TF(value) {
     }
     return "F";
 }
-// TODO: Fix this function omg 
-// problem p) is interpreted as a variable
 function tokenize(input) {
     input += " ";
     let madeWord = "";
     let tokens = [];
+    let append = [];
     for (const char of input) {
         if (char == " ") {
             if (madeWord == "") {
@@ -269,7 +284,21 @@ function tokenize(input) {
             }
             let variable = new Variable(madeWord);
             tokens.push(variable);
+            for (const token of append) {
+                tokens.push(token);
+            }
+            append = [];
             madeWord = "";
+            continue;
+        }
+        let charToken = getTokenFor(char);
+        if (charToken != undefined) {
+            if (charToken instanceof Close) {
+                append.push(charToken);
+            }
+            else {
+                tokens.push(charToken);
+            }
             continue;
         }
         madeWord += char;
@@ -308,6 +337,7 @@ rl.question("FORMULA: ", (answer) => {
         variables.push(token);
     }
     let expr = getExprFromTokens(tokenized);
+    formula = expr.stringify();
     let values = generateAllTruthValues(variables);
     let tableHead = "";
     for (const variable of variables) {
@@ -325,3 +355,5 @@ rl.question("FORMULA: ", (answer) => {
     }
     rl.close();
 });
+// benchmark 😈 
+// (((((((((((((((a & b) & c) & d) & e) & f) & g) & h) & i) & j) & k) & l) & m) & n) & o) & p)
