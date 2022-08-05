@@ -1,4 +1,28 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
 class Token {
 }
 class Variable extends Token {
@@ -24,6 +48,17 @@ class Operator extends Token {
         }
         return undefined;
     }
+    static getEvaluationFor(first, second, operation) {
+        if (operation == "AND") {
+            return first && second;
+        }
+        if (operation == "OR") {
+            return first || second;
+        }
+        if (operation == "IMPLIES") {
+            return (!first) || second;
+        }
+    }
 }
 class UnaryOperator extends Token {
     constructor(name) {
@@ -38,9 +73,8 @@ class UnaryOperator extends Token {
     }
 }
 class Open extends Token {
-    constructor(name) {
+    constructor() {
         super();
-        this.operation = name;
     }
     static find(stack, tokens, offset) {
         if (tokens[offset + 1] instanceof Open) {
@@ -50,9 +84,8 @@ class Open extends Token {
     }
 }
 class Close extends Token {
-    constructor(name) {
+    constructor() {
         super();
-        this.operation = name;
     }
     static find(stack, tokens, offset) {
         if (tokens[offset + 1] instanceof Close) {
@@ -74,6 +107,47 @@ class Expr extends Token {
         // }
         return undefined;
     }
+    isOfPath(path) {
+        for (let i = 0; i < this.myPath.length; i++) {
+            if (this.myPath[i].name != path[i].name) {
+                return false;
+            }
+        }
+        return true;
+    }
+    eval(truthValues) {
+        if (this.isOfPath([Variable])) {
+            let variable = this.value[0];
+            if (truthValues.has(variable.name)) {
+                return truthValues.get(variable.name);
+            }
+            else {
+                throw Error("Variable is not given truth value.");
+            }
+        }
+        if (this.isOfPath([UnaryOperator, Expr])) {
+            let expr = this.value[1];
+            return (!(expr.eval(truthValues)));
+        }
+        if (this.isOfPath([Expr, Operator, Expr])) {
+            let expr1 = this.value[0];
+            let expr2 = this.value[2];
+            let oper = this.value[1];
+            return Operator.getEvaluationFor(expr1.eval(truthValues), expr2.eval(truthValues), oper.operation);
+        }
+        if (this.isOfPath([Open, Expr, Close])) {
+            let expr = this.value[1];
+            return expr.eval(truthValues);
+        }
+    }
+    // so theres a bug 
+    // i want to see if the computed offset is equal to the length of the tokens
+    // if not, put that whole computed expr in parenthesis and parse the whole thing again
+    // repeat
+    // (A AND (X <=> NOT C)) => B
+    // but not
+    // A AND (X <=> NOT C) => B
+    // it only returns A AND (X <=> NOT C) 
     static find(stack, tokens, offset) {
         for (const path of Expr.paths) {
             if (stack.length > 0) {
@@ -118,16 +192,24 @@ Expr.paths = [
 ];
 function getTokenFor(input) {
     let map = new Map;
-    map.set("(", new Open("("));
-    map.set(")", new Close(")"));
+    map.set("(", new Open());
+    map.set(")", new Close());
+    map.set("[", new Open());
+    map.set("]", new Close());
+    map.set("{", new Open());
+    map.set("}", new Close());
     map.set("&", new Operator("AND"));
+    map.set("and", new Operator("AND"));
     map.set("AND", new Operator("AND"));
     map.set("^", new Operator("AND"));
     map.set("v", new Operator("OR"));
     map.set("OR", new Operator("OR"));
+    map.set("or", new Operator("OR"));
     map.set("|", new Operator("OR"));
     map.set("XOR", new Operator("XOR"));
+    map.set("xor", new Operator("XOR"));
     map.set("IMPLIES", new Operator("IMPLIES"));
+    map.set("implies", new Operator("IMPLIES"));
     map.set("WHEN", new Operator("IMPLIES"));
     map.set("IF", new Operator("IMPLIES"));
     map.set("->", new Operator("IMPLIES"));
@@ -135,48 +217,111 @@ function getTokenFor(input) {
     map.set("<=>", new Operator("IFF"));
     map.set("<->", new Operator("IFF"));
     map.set("IFF", new Operator("IFF"));
-    map.set("~", new UnaryOperator("~"));
+    map.set("~", new UnaryOperator("NOT"));
     map.set("NOT", new UnaryOperator("NOT"));
+    map.set("not", new UnaryOperator("NOT"));
     return map.get(input);
 }
+function getExprFromTokens(tokens) {
+    let ret = Expr.find([], tokens, -1);
+    if (ret == undefined) {
+        return undefined;
+    }
+    return ret[0];
+}
+function generateAllTruthValues(variables) {
+    if (variables.length == 1) {
+        let first = new Map;
+        first.set(variables[0].name, true);
+        let sec = new Map;
+        sec.set(variables[0].name, false);
+        return [first, sec];
+    }
+    let final = [];
+    let firstVar = variables[0];
+    let others = generateAllTruthValues(variables.slice(1));
+    for (const truthValues of others) {
+        let first = new Map(truthValues);
+        let sec = new Map(truthValues);
+        first.set(firstVar.name, true);
+        sec.set(firstVar.name, false);
+        final.push(first);
+        final.push(sec);
+    }
+    return final;
+}
+function TF(value) {
+    if (value) {
+        return "T";
+    }
+    return "F";
+}
+// TODO: Fix this function omg 
+// problem p) is interpreted as a variable
 function tokenize(input) {
+    input += " ";
     let madeWord = "";
     let tokens = [];
     for (const char of input) {
-        madeWord += char;
-        let insert = getTokenFor(madeWord);
-        if (insert != undefined) {
-            tokens.push(insert);
+        if (char == " ") {
+            if (madeWord == "") {
+                continue;
+            }
+            let variable = new Variable(madeWord);
+            tokens.push(variable);
             madeWord = "";
             continue;
         }
-        if (char == " ") {
-            tokens.push(new Variable(madeWord));
+        madeWord += char;
+        let token = getTokenFor(madeWord);
+        if (token != undefined) {
+            tokens.push(token);
             madeWord = "";
-            continue;
         }
     }
     return tokens;
 }
-let tokenized = tokenize("P IMPLIES Q");
-// console.log(tokenized);
-let expr = Expr.find([], [
-    new Open("("),
-    new Variable("A"),
-    new Operator("AND"),
-    new Open("("),
-    new Variable("X"),
-    new Operator("<=>"),
-    new UnaryOperator("NOT"),
-    new Variable("C"),
-    new Close(")"),
-    new Close(")"),
-    new Operator("=>"),
-    new Variable("B")
-], -1);
-// (A AND (X <=> NOT C)) => B
-console.log(expr[0]);
-// console.log(expr.getString());
-// import util from 'util';
-// console.log(expr[0].value[0].value[1]);
-// console.log(util.inspect(expr, false, null, true /* enable colors */));
+const readline = __importStar(require("readline"));
+let rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+let formula = "";
+rl.question("FORMULA: ", (answer) => {
+    formula = answer;
+    let tokenized = tokenize(formula);
+    let variables = [];
+    for (const token of tokenized) {
+        if (!(token instanceof Variable)) {
+            continue;
+        }
+        let check = true;
+        for (const variable of variables) {
+            if (variable.name == token.name) {
+                check = false;
+                break;
+            }
+        }
+        if (!check) {
+            continue;
+        }
+        variables.push(token);
+    }
+    let expr = getExprFromTokens(tokenized);
+    let values = generateAllTruthValues(variables);
+    let tableHead = "";
+    for (const variable of variables) {
+        tableHead += variable.name + " | ";
+    }
+    tableHead += formula;
+    console.log(tableHead);
+    for (const truthValues of values) {
+        let out = "";
+        for (const variable of variables) {
+            out += TF(truthValues.get(variable.name)) + " | ";
+        }
+        out += TF(expr.eval(truthValues));
+        console.log(out);
+    }
+    rl.close();
+});
