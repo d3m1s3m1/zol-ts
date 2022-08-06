@@ -44,7 +44,7 @@ class Operator extends Token {
         if (operation == "⇒") {
             return (!first) || second;
         }
-		if (operation == "IFF") {
+		if (operation == "≡") {
             return ((!first) || second) && ((!second) || first);
         }
     }
@@ -166,14 +166,6 @@ class Expr extends Token {
         }
     }
 
-    // so theres a bug 
-    // i want to see if the computed offset is equal to the length of the tokens
-    // if not, put that whole computed expr in parenthesis and parse the whole thing again
-    // repeat
-    // (A AND (X <=> NOT C)) => B
-    // but not
-    // A AND (X <=> NOT C) => B
-    // it only returns A AND (X <=> NOT C) 
     static find(stack: any[][], tokens: Token[], offset: number): [Token, number] | undefined {
         for (const path of Expr.paths) {
             if (stack.length > 0) {
@@ -224,6 +216,7 @@ function getTokenFor(input: string): Token | undefined {
     map.set("and", new Operator("∧"));
     map.set("AND", new Operator("∧"));
     map.set("^", new Operator("∧"));
+    map.set(",", new Operator("∧"));
 
     map.set("v", new Operator("∨"));
     map.set("OR", new Operator("∨"));
@@ -240,23 +233,36 @@ function getTokenFor(input: string): Token | undefined {
     map.set("->", new Operator("⇒"));
     map.set("=>", new Operator("⇒"));
 
-    map.set("<=>", new Operator("IFF"));
-    map.set("<->", new Operator("IFF"));
-    map.set("IFF", new Operator("IFF"));
+    map.set("<=>", new Operator("≡"));
+    map.set("<->", new Operator("≡"));
+    map.set("IFF", new Operator("≡"));
 
     map.set("~", new UnaryOperator("NOT"));
     map.set("NOT", new UnaryOperator("NOT"));
     map.set("not", new UnaryOperator("NOT"));
+    map.set("!", new UnaryOperator("NOT"));
+
     
     return map.get(input)
 }
 
-function getExprFromTokens(tokens: Token[]) {
+function getExprFromTokens(tokens: Token[]): Expr | undefined {
     let ret = Expr.find([], tokens, -1);
     if (ret == undefined) {
         return undefined;
     } 
-    return ret[0]
+    if (ret[1] != (tokens.length-1)) {
+        let tryAgain: Token[] = [];
+        let remainingTokens: Token[] = tokens.splice(ret[1]+1);
+        
+        tryAgain.push(new Open());
+        tryAgain.push(...tokens.slice(0, ret[1]+1));
+        tryAgain.push(new Close());
+
+        tryAgain.push(...remainingTokens);
+        return getExprFromTokens(tryAgain);
+    }
+    return ret[0] as Expr;
 }
 
 function generateAllTruthValues(variables: Variable[]) : Map<string, boolean>[]  {
@@ -294,6 +300,9 @@ function TF(value: boolean): string {
     }
     return "F";
 }
+
+// let expr = getExprFromTokens([new Variable("p"), new Operator("AND"), new Variable("q"), new Operator("AND"), new Variable("q")]);
+// console.log(expr?.stringify());
 
 function tokenize(input: string) {
     input += " ";
@@ -361,7 +370,10 @@ rl.question("FORMULA: ", (answer: string) => {
     
     let expr: any = getExprFromTokens(tokenized);
     formula = expr.stringify();
-    let values = generateAllTruthValues(variables);
+    let reversed: Variable[] = [];
+    Object.assign(reversed, variables);
+    reversed.reverse();
+    let values = generateAllTruthValues(reversed);
         
     let tableHead: string = "";
     for (const variable of variables) {
