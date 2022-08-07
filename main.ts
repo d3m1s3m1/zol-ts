@@ -47,6 +47,9 @@ class Operator extends Token {
 		if (operation == "≡") {
             return ((!first) || second) && ((!second) || first);
         }
+        if (operation == "⊕") {
+            return (first || second) && (!(first && second));
+        }
     }
 }
 
@@ -218,13 +221,12 @@ function getTokenFor(input: string): Token | undefined {
     map.set("^", new Operator("∧"));
     map.set(",", new Operator("∧"));
 
-    map.set("v", new Operator("∨"));
     map.set("OR", new Operator("∨"));
     map.set("or", new Operator("∨"));
     map.set("|", new Operator("∨"));
 
-    map.set("XOR", new Operator("XOR"));
-    map.set("xor", new Operator("XOR"));
+    map.set("XOR", new Operator("⊕"));
+    map.set("xor", new Operator("⊕"));
 
     map.set("IMPLIES", new Operator("⇒"));
     map.set("implies", new Operator("⇒"));
@@ -301,9 +303,6 @@ function TF(value: boolean): string {
     return "F";
 }
 
-// let expr = getExprFromTokens([new Variable("p"), new Operator("AND"), new Variable("q"), new Operator("AND"), new Variable("q")]);
-// console.log(expr?.stringify());
-
 function tokenize(input: string) {
     input += " ";
     let madeWord = "";
@@ -342,57 +341,121 @@ function tokenize(input: string) {
     return tokens;
 }
 
-import * as readline from 'readline';
+// import * as readline from 'readline';
 
-let rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+// let rl = readline.createInterface({
+//   input: process.stdin,
+//   output: process.stdout
+// });
 
-let formula = ""
-rl.question("FORMULA: ", (answer: string) => {
-    formula = answer;
-    let tokenized: Token[] = tokenize(formula);
-    let variables: Variable[] = [];
+// let formula = ""
+// rl.question("FORMULA: ", (answer: string) => {
+//     formula = answer;
+//     let tokenized: Token[] = tokenize(formula);
+//     let variables: Variable[] = [];
     
-    for (const token of tokenized) {
-        if (!(token instanceof Variable)) { continue; }
-        let check: boolean = true;
-        for (const variable of variables) {
-            if (variable.name == token.name) {
-                check = false;
-                break;
-            }
-        }
-        if (!check) { continue; }
-        variables.push(token);
-    }
+//     for (const token of tokenized) {
+//         if (!(token instanceof Variable)) { continue; }
+//         let check: boolean = true;
+//         for (const variable of variables) {
+//             if (variable.name == token.name) {
+//                 check = false;
+//                 break;
+//             }
+//         }
+//         if (!check) { continue; }
+//         variables.push(token);
+//     }
     
-    let expr: any = getExprFromTokens(tokenized);
-    formula = expr.stringify();
-    let reversed: Variable[] = [];
-    Object.assign(reversed, variables);
-    reversed.reverse();
-    let values = generateAllTruthValues(reversed);
+//     let expr: any = getExprFromTokens(tokenized);
+//     formula = expr.stringify();
+//     let reversed: Variable[] = [];
+//     Object.assign(reversed, variables);
+//     reversed.reverse();
+//     let values = generateAllTruthValues(reversed);
         
-    let tableHead: string = "";
-    for (const variable of variables) {
-            tableHead += variable.name + " | "
-    }
-    tableHead += formula;
+//     let tableHead: string = "";
+//     for (const variable of variables) {
+//             tableHead += variable.name + " | "
+//     }
+//     tableHead += formula;
     
-    console.log(tableHead);
+//     console.log(tableHead);
     
-    for (const truthValues of values) {
-        let out: string = "";
-        for (const variable of variables) {
-            out += TF(truthValues.get(variable.name) as boolean) + " | ";
-        }
-        out += TF(expr.eval(truthValues) as boolean);
-        console.log(out);
-    }
-    rl.close();
-});
+//     for (const truthValues of values) {
+//         let out: string = "";
+//         for (const variable of variables) {
+//             out += TF(truthValues.get(variable.name) as boolean) + " | ";
+//         }
+//         out += TF(expr.eval(truthValues) as boolean);
+//         console.log(out);
+//     }
+//     rl.close();
+// });
 
-// benchmark 😈 
-// (((((((((((((((a & b) & c) & d) & e) & f) & g) & h) & i) & j) & k) & l) & m) & n) & o) & p)
+window.onload = function() {
+    const formulaInput = document.getElementById("formula");
+    const truthTable = document.getElementById("truth-table");
+    formulaInput.value = "p => q";
+
+    update();
+
+    function update() {
+        let formula = formulaInput.value;
+        let tokenized: Token[] = tokenize(formula);
+        let variables: Variable[] = [];
+        
+        for (const token of tokenized) {
+            if (!(token instanceof Variable)) { continue; }
+            let check: boolean = true;
+            for (const variable of variables) {
+                if (variable.name == token.name) {
+                    check = false;
+                    break;
+                }
+            }
+            if (!check) { continue; }
+            variables.push(token);
+        }
+        
+        let expr: any = getExprFromTokens(tokenized);
+        if (expr == undefined) {
+            return;
+        }
+        truthTable!.innerHTML = "";
+        formula = expr.stringify();
+        let reversed: Variable[] = [];
+        Object.assign(reversed, variables);
+        reversed.reverse();
+        let values = generateAllTruthValues(reversed);
+            
+        let tableHead = document.createElement("tr");
+        for (const variable of variables) {
+                let add = document.createElement("th");
+                add.textContent = variable.name
+                tableHead.appendChild(add);
+        }
+        let formulaAdd = document.createElement("th");
+        formulaAdd.textContent = formula;
+        tableHead.appendChild(formulaAdd);
+        truthTable?.appendChild(tableHead);
+        
+        for (const truthValues of values) {
+            let out = document.createElement("tr");
+            for (const variable of variables) {
+                let add = document.createElement("td");
+                add.textContent = TF(truthValues.get(variable.name) as boolean);
+                out.appendChild(add);
+            }
+            let add = document.createElement("td");
+            add.textContent = TF(expr.eval(truthValues) as boolean);
+            out.appendChild(add);
+            
+            truthTable?.appendChild(out);
+        }
+    }
+
+    formulaInput!.oninput = function(e) {
+        update();
+    }
+};

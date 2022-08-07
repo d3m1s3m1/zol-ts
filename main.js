@@ -1,28 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-Object.defineProperty(exports, "__esModule", { value: true });
 class Token {
 }
 class Variable extends Token {
@@ -60,6 +36,9 @@ class Operator extends Token {
         }
         if (operation == "≡") {
             return ((!first) || second) && ((!second) || first);
+        }
+        if (operation == "⊕") {
+            return (first || second) && (!(first && second));
         }
     }
 }
@@ -211,12 +190,11 @@ function getTokenFor(input) {
     map.set("AND", new Operator("∧"));
     map.set("^", new Operator("∧"));
     map.set(",", new Operator("∧"));
-    map.set("v", new Operator("∨"));
     map.set("OR", new Operator("∨"));
     map.set("or", new Operator("∨"));
     map.set("|", new Operator("∨"));
-    map.set("XOR", new Operator("XOR"));
-    map.set("xor", new Operator("XOR"));
+    map.set("XOR", new Operator("⊕"));
+    map.set("xor", new Operator("⊕"));
     map.set("IMPLIES", new Operator("⇒"));
     map.set("implies", new Operator("⇒"));
     map.set("WHEN", new Operator("⇒"));
@@ -275,8 +253,6 @@ function TF(value) {
     }
     return "F";
 }
-// let expr = getExprFromTokens([new Variable("p"), new Operator("AND"), new Variable("q"), new Operator("AND"), new Variable("q")]);
-// console.log(expr?.stringify());
 function tokenize(input) {
     input += " ";
     let madeWord = "";
@@ -315,53 +291,109 @@ function tokenize(input) {
     }
     return tokens;
 }
-const readline = __importStar(require("readline"));
-let rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-let formula = "";
-rl.question("FORMULA: ", (answer) => {
-    formula = answer;
-    let tokenized = tokenize(formula);
-    let variables = [];
-    for (const token of tokenized) {
-        if (!(token instanceof Variable)) {
-            continue;
-        }
-        let check = true;
-        for (const variable of variables) {
-            if (variable.name == token.name) {
-                check = false;
-                break;
+// import * as readline from 'readline';
+// let rl = readline.createInterface({
+//   input: process.stdin,
+//   output: process.stdout
+// });
+// let formula = ""
+// rl.question("FORMULA: ", (answer: string) => {
+//     formula = answer;
+//     let tokenized: Token[] = tokenize(formula);
+//     let variables: Variable[] = [];
+//     for (const token of tokenized) {
+//         if (!(token instanceof Variable)) { continue; }
+//         let check: boolean = true;
+//         for (const variable of variables) {
+//             if (variable.name == token.name) {
+//                 check = false;
+//                 break;
+//             }
+//         }
+//         if (!check) { continue; }
+//         variables.push(token);
+//     }
+//     let expr: any = getExprFromTokens(tokenized);
+//     formula = expr.stringify();
+//     let reversed: Variable[] = [];
+//     Object.assign(reversed, variables);
+//     reversed.reverse();
+//     let values = generateAllTruthValues(reversed);
+//     let tableHead: string = "";
+//     for (const variable of variables) {
+//             tableHead += variable.name + " | "
+//     }
+//     tableHead += formula;
+//     console.log(tableHead);
+//     for (const truthValues of values) {
+//         let out: string = "";
+//         for (const variable of variables) {
+//             out += TF(truthValues.get(variable.name) as boolean) + " | ";
+//         }
+//         out += TF(expr.eval(truthValues) as boolean);
+//         console.log(out);
+//     }
+//     rl.close();
+// });
+window.onload = function () {
+    const formulaInput = document.getElementById("formula");
+    const truthTable = document.getElementById("truth-table");
+    formulaInput.value = "p => q";
+    update();
+    function update() {
+        let formula = formulaInput.value;
+        let tokenized = tokenize(formula);
+        let variables = [];
+        for (const token of tokenized) {
+            if (!(token instanceof Variable)) {
+                continue;
             }
+            let check = true;
+            for (const variable of variables) {
+                if (variable.name == token.name) {
+                    check = false;
+                    break;
+                }
+            }
+            if (!check) {
+                continue;
+            }
+            variables.push(token);
         }
-        if (!check) {
-            continue;
+        let expr = getExprFromTokens(tokenized);
+        if (expr == undefined) {
+            return;
         }
-        variables.push(token);
-    }
-    let expr = getExprFromTokens(tokenized);
-    formula = expr.stringify();
-    let reversed = [];
-    Object.assign(reversed, variables);
-    reversed.reverse();
-    let values = generateAllTruthValues(reversed);
-    let tableHead = "";
-    for (const variable of variables) {
-        tableHead += variable.name + " | ";
-    }
-    tableHead += formula;
-    console.log(tableHead);
-    for (const truthValues of values) {
-        let out = "";
+        truthTable.innerHTML = "";
+        formula = expr.stringify();
+        let reversed = [];
+        Object.assign(reversed, variables);
+        reversed.reverse();
+        let values = generateAllTruthValues(reversed);
+        let tableHead = document.createElement("tr");
         for (const variable of variables) {
-            out += TF(truthValues.get(variable.name)) + " | ";
+            let add = document.createElement("th");
+            add.textContent = variable.name;
+            tableHead.appendChild(add);
         }
-        out += TF(expr.eval(truthValues));
-        console.log(out);
+        let formulaAdd = document.createElement("th");
+        formulaAdd.textContent = formula;
+        tableHead.appendChild(formulaAdd);
+        truthTable === null || truthTable === void 0 ? void 0 : truthTable.appendChild(tableHead);
+        for (const truthValues of values) {
+            let out = document.createElement("tr");
+            for (const variable of variables) {
+                let add = document.createElement("td");
+                add.textContent = TF(truthValues.get(variable.name));
+                out.appendChild(add);
+            }
+            let add = document.createElement("td");
+            add.textContent = TF(expr.eval(truthValues));
+            out.appendChild(add);
+            truthTable === null || truthTable === void 0 ? void 0 : truthTable.appendChild(out);
+        }
     }
-    rl.close();
-});
-// benchmark 😈 
-// (((((((((((((((a & b) & c) & d) & e) & f) & g) & h) & i) & j) & k) & l) & m) & n) & o) & p)
+    formulaInput.oninput = function (e) {
+        update();
+    };
+};
