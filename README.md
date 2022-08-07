@@ -14,4 +14,4 @@ I created (probably not the first) the algorithm to turn a tokenized string into
 Goals
 1. ~Truth Table Generator~
 2. Argument Validity Checker
-3. Web version?
+3. ~Web version?~
