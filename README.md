@@ -1,5 +1,8 @@
 # zol-ts
- The worst Zeroth-Order-Logic implementation in TypeScript
+
+https://d3m1s3m1.github.io/zol-ts/
+
+The worst Zeroth-Order-Logic implementation in TypeScript
 
 I created this as an experiment to see just how much I can implement by myself.  I never worked with syntax trees before and have a vague idea of the process through which plaintext gets converted into something machine-readable.
 
