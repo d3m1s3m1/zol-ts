@@ -8,6 +8,7 @@ I wanted to create an algebra interpreter but I thought I'd better implement som
 I created (probably not the first) the algorithm to turn a tokenized string into an Expression Object through trial and error with a pen and a lot of paper.
 
 ![image](https://user-images.githubusercontent.com/77368058/186716227-fdb742b5-1ac4-4bb2-9f66-8d34fa051d29.png)
+
 ![image](https://user-images.githubusercontent.com/77368058/186716404-6ea5359e-413b-42ec-8e30-38966038b767.png)
 
 Goals
