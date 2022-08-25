@@ -13,5 +13,5 @@ I created (probably not the first) the algorithm to turn a tokenized string into
 
 Goals
 1. ~Truth Table Generator~
-2. Argument Validity Checker
+2. Argument Validity Checker (you could just take the conjuction of each premise implies conclusion and see if its a tautology.)
 3. ~Web version?~
