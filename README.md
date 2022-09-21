@@ -1,6 +1,6 @@
 # zol-ts
 
-https://d3m1s3m1.github.io/zol-ts/
+https://ihab247.github.io/zol-ts/
 
 The worst Zeroth-Order-Logic implementation in TypeScript
 
